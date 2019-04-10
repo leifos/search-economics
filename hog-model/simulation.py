@@ -1,57 +1,101 @@
 import math
-
-MAX_RATE = 5.0
-
-
-class provider:
-
-    def __init__(self):
-        self.capital = 1000
-        self.level = 1      #for conversion rate
-        self.ad_policy = 1     #for ad budget
-        self.inv_policy = 1
-        self.position = 0
-        self.size = 1       #for running costs
-        self.inv_total = 0
-
-        self.ad_budget = 0
-        self.inv_budget = 0
+import random
+import numpy as np
+from search_mechanics import SearchMechanics
+from providers import Providers
+import matplotlib.pyplot as plt
 
 
+def run_simulation(search_mechanic, provider, num_providers=30,days=365, num_requests=1000):
 
 
-    def calc_allocation(self):
-        """
-        :return: per round running costs, ad budget, investment
-        """
+    random.seed(12345)
+    np.random.seed(12345)
 
 
-    def get_conversion_rate(self):
-        rate = (self.level + 1.0)/2.0
-        return min(rate, MAX_RATE)
+    print("Starting Capital: ", provider.get_total_capital())
+    #print(provider.show_state())
+
+    tcap = []
+    tcap.append(provider.capital)
+    tad = []
+    talive = []
+    trank = []
+    trev = []
+    tclicks = []
+
+    for day in range(0, days):
+
+        ad_budgets = provider.get_round_ad_budget()
+
+        search_mechanic.start_round(ad_budgets)
+        for i in range(0, num_requests):
+            # check ad budget, any left given provider budgets?
+            search_mechanic.run_query()
+
+        (ad_spend, clicks, ranking) = search_mechanic.end_round()
+
+        revenue = provider.after_round_update(ad_spend, clicks)
+        tad.append(np.sum(ad_spend))
+        trank.append(ranking)
+        tcap.append(provider.capital)
+        trev.append(np.sum(revenue))
+        tclicks.append(clicks)
+        alive = 0
+        for c in list(provider.capital):
+            if c > 100:
+                alive = alive + 1
+        talive.append(alive)
+
+        tad.append(np.sum(np.array(np.array(ad_spend))))
+        r = round(np.sum(revenue),2)
+        ar = round(prov.get_total_capital(),2)
+        ads = round(np.sum(ad_spend),2)
+        print("Day: {}\tTotal Capital: {}\tRevenue:{}\t AdSpend: {} Alive: {}".format(day, ar, r, ads, alive))
+
+    ntcap = np.array(tcap)
+    ntrank = np.array(trank)
+    ntad = np.array(tad)
+    ntrev = np.array(trev)
+    ntclicks = np.array(tclicks)
+    print(search_mechanic.get_name())
+    print("Ending Capital: ",  list(np.sum(ntcap, axis=1))[-1])
+    print("Total Ad Revenue Over Period:",  np.sum(tad))
+    print("Total Revenue", np.sum(ntrev))
 
 
-    def get_running_costs(self):
-        return math.log(self.size * 10.0)
 
 
-    def set_ad_budget(self):
-        """
-        default ad budget policy plus 1, so up to 11% of capital can be put toward ads
-        :return:
-        """
-        ad = min(self.ad_policy, 10)
-        return math.floor( ((ad+1.0)/100.0) * self.capital)
+    plt.figure(figsize =(8,16))
+    plt.tight_layout(pad=2.0, w_pad=5.0, h_pad=5.0)
+    plt.subplot(4, 1, 1)
+    plt.plot(ntcap)
+    plt.title("Simulation {}".format(search_mechanic.get_name()))
+    #plt.xlabel("Days")
+    plt.ylabel("Total Capital")
+
+    plt.subplot(4, 1, 2)
+    plt.plot(ntclicks)
+    #plt.title("Active Firms")
+    plt.ylabel("Clicks")
+
+    plt.subplot(4, 1, 3)
+    plt.plot(tad)
+    plt.ylabel("Ad Revenue")
+    plt.xlabel("Days")
+
+    plt.subplot(4, 1, 4)
+    plt.plot(ntrank)
+    plt.ylabel("Provider Ranking")
+    plt.xlabel("Days")
+
+    plt_name = "sim-{}.png".format(search_mechanic.get_name())
+    plt.savefig(plt_name)
+    plt.show()
 
 
-    def get_investment(self):
-        inv = min(self.inv_policy, 10)
-        return math.floor( ((inv+1.0)/100.0) * self.capital)
 
-    def update(self):
-        """
-
-        :return:
-        """
-
-
+num_providers = 30
+sm = SearchMechanics(num_providers=num_providers, num_ads=3, ad_cost=2.0, ad_prob=0.1, doc_theta=0.2)
+prov = Providers(num_providers=num_providers, profit=6.0)
+run_simulation(search_mechanic=sm, provider=prov,num_providers=num_providers, days=100,num_requests=1000)
