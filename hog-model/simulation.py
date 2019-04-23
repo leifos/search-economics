@@ -7,11 +7,8 @@ import matplotlib.pyplot as plt
 
 
 def run_simulation(search_mechanic, provider, num_providers=30,days=365, num_requests=1000):
-
-
     random.seed(12345)
     np.random.seed(12345)
-
 
     print("Starting Capital: ", provider.get_total_capital())
     #print(provider.show_state())
@@ -86,7 +83,7 @@ def run_simulation(search_mechanic, provider, num_providers=30,days=365, num_req
 
     plt.subplot(4, 1, 4)
     plt.plot(ntrank)
-    plt.ylabel("Provider Ranking")
+    plt.ylabel("Provider Score")
     plt.xlabel("Days")
 
     plt_name = "sim-{}.png".format(search_mechanic.get_name())
@@ -96,6 +93,6 @@ def run_simulation(search_mechanic, provider, num_providers=30,days=365, num_req
 
 
 num_providers = 30
-sm = SearchMechanics(num_providers=num_providers, num_ads=3, ad_cost=2.0, ad_prob=0.1, doc_theta=0.2)
-prov = Providers(num_providers=num_providers, profit=6.0)
+sm = SearchMechanics(num_providers=num_providers, num_ads=1, ad_cost=1.0, ad_prob=0.3, doc_theta=0.5, discount=1.0)
+prov = Providers(num_providers=num_providers, profit=2.0)
 run_simulation(search_mechanic=sm, provider=prov,num_providers=num_providers, days=100,num_requests=1000)

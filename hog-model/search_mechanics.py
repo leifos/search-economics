@@ -2,9 +2,9 @@ import random
 import numpy as np
 
 class SearchMechanics(object):
-    def __init__(self, num_providers=30, num_ads=3, ad_prob =0.1, ad_cost=1.0, ad_theta=0.3, doc_theta=0.6):
+    def __init__(self, num_providers=30, num_ads=3, ad_prob =0.1, ad_cost=1.0, ad_theta=0.3, doc_theta=0.6, discount=0.0):
         self.num_ads = num_ads
-        self.discount = 1.0
+        self.discount = discount
         self.ad_prob = ad_prob
         self.ad_cost = ad_cost
         self.ad_theta = ad_theta
@@ -13,10 +13,11 @@ class SearchMechanics(object):
         #starts the scenario with a random starting point for the ranking
         self.score = {}
         for i in range(0, num_providers):
-            self.score[i] = random.randint(0,100)
+            self.score[i] = random.randint(0,num_providers)
 
         self.clicks = {}
         self.round_clicks = np.zeros(self.num_providers).tolist()
+        self.ad_clicks = np.zeros(self.num_providers).tolist()
         self.ad_budgets = np.zeros(self.num_providers).tolist()
         self.ad_spend = np.zeros(self.num_providers).tolist()
 
@@ -35,8 +36,8 @@ class SearchMechanics(object):
         click_prob =  np.divide(p_both, np.sum(p_both)).tolist()
         return click_prob
 
-    def _make_click_prob(self):
-        p_ads = np.divide(np.ones(self.num_ads), np.sum(np.ones(self.num_ads)))
+    def _make_click_prob(self, num_ads):
+        p_ads = np.divide(np.ones(num_ads), np.sum(np.ones(num_ads)))
         p_ads = np.multiply(p_ads, self.ad_prob)
 
         cvec = np.dot(np.ones(self.num_providers), self.doc_theta)
@@ -56,16 +57,19 @@ class SearchMechanics(object):
 
     def _get_clicked_item(self, click_probs):
         p = random.random()
-        ps = click_probs[1]
+        ps = click_probs[0]
         i = 0
-        while (p > ps) and (i<len(click_probs)-1):
+        n = len(click_probs) - 1
+        while (p > ps) and (i<n):
             i = i + 1
             ps = ps + click_probs[i]
+
         return i
 
     def start_round(self, ad_budgets):
         # set the budgets
         self.round_clicks = np.zeros(self.num_providers).tolist()
+        self.ad_clicks = np.zeros(self.num_providers).tolist()
         self.clicks = {}
         for i in range(0, self.num_providers):
             self.clicks[i] = random.randint(0,100)
@@ -96,26 +100,35 @@ class SearchMechanics(object):
         # how many ads to show on the current page?
         ad_providers = self._get_ad_providers()
         num_ads = len(ad_providers)
-        click_probs = self._make_click_prob()
+        #print(ad_providers, num_ads)
+        click_probs = self._make_click_prob(num_ads)
         item_clicked = self._get_clicked_item(click_probs)
         ranked_providers = self._get_provider_ranking()
 
+        #print([ad_providers, ranked_providers])
         # only if there are ads being shown.
         if item_clicked < num_ads:
             clicked_provider = ad_providers[item_clicked]
             self.ad_budgets[clicked_provider] = self.ad_budgets[clicked_provider] - self.ad_cost
             self.ad_spend[clicked_provider] = self.ad_spend[clicked_provider] + self.ad_cost
+            self.ad_clicks[clicked_provider] = self.ad_clicks[clicked_provider] + 1
         else:
             # need to adjust for the position of the ads in the list. hack..
             # maybe make a prob to click an ad, and then a prob to click the position
             #print(i,item_clicked, num_ads)
+            n = item_clicked-num_ads
+            #print(ranked_providers, n)
             clicked_provider = ranked_providers[item_clicked-num_ads]
+        #print("Item:{} Clicked: {}".format(item_clicked, clicked_provider))
         # record the click in total clicks list
         self.clicks[clicked_provider] =  self.clicks[clicked_provider] + 1
         self.round_clicks[clicked_provider] += 1
 
     def end_round(self):
 
+        #print(self.round_clicks)
+        #print(self.ad_clicks)
+        #print(self.score)
         # update the ranking score based on previous clicks
         scores = []
         for i in range(0, len(self.round_clicks)):

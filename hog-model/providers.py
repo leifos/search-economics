@@ -37,8 +37,8 @@ class Providers(object):
                 max1=value
                 index1=i
 
-        ad_budget[index1] = min(max2*2, max1)
-        #ad_budget[index1] = max1
+        #ad_budget[index1] = min(max2*2, max1)
+        ad_budget[index1] = max2
         return ad_budget
 
 
