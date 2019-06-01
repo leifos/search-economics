@@ -1,5 +1,7 @@
 import random
 import numpy as np
+import logging
+
 
 class SearchMechanics(object):
     def __init__(self, num_providers=30, num_ads=3, ad_prob =0.1, ad_cost=1.0, ad_theta=0.3, doc_theta=0.6, discount=0.0):
@@ -12,17 +14,20 @@ class SearchMechanics(object):
         self.num_providers = num_providers
         #starts the scenario with a random starting point for the ranking
         self.score = {}
-        for i in range(0, num_providers):
-            self.score[i] = random.randint(0,num_providers)
-
         self.clicks = {}
+        for i in range(0, num_providers):
+            self.score[i] = np.random.randint(low=0, high=num_providers)
+            self.clicks[i] = self.score[i]
+
         self.round_clicks = np.zeros(self.num_providers).tolist()
         self.ad_clicks = np.zeros(self.num_providers).tolist()
         self.ad_budgets = np.zeros(self.num_providers).tolist()
         self.ad_spend = np.zeros(self.num_providers).tolist()
 
+        logging.basicConfig(filename='example.log', level=logging.DEBUG)
+
     def get_name(self):
-        return "ads-{}prob-{}cost-{}theta-{}".format(self.num_ads,self.ad_prob,self.ad_cost, self.doc_theta)
+        return "ads-{}prob-{}cost-{}theta-{}".format(self.num_ads,round(self.ad_prob,2),self.ad_cost, self.doc_theta)
 
     def _make_click_prob_old(self, doc_theta, ad_theta, num_providers, num_ads):
         p_ads = np.dot(np.ones(num_ads), ad_theta)
@@ -56,7 +61,7 @@ class SearchMechanics(object):
         return ranking
 
     def _get_clicked_item(self, click_probs):
-        p = random.random()
+        p = np.random.random()
         ps = click_probs[0]
         i = 0
         n = len(click_probs) - 1
@@ -66,15 +71,15 @@ class SearchMechanics(object):
 
         return i
 
-    def start_round(self, ad_budgets):
+    def start_round(self, day, ad_budgets):
         # set the budgets
         self.round_clicks = np.zeros(self.num_providers).tolist()
         self.ad_clicks = np.zeros(self.num_providers).tolist()
-        self.clicks = {}
-        for i in range(0, self.num_providers):
-            self.clicks[i] = random.randint(0,100)
         self.ad_budgets = ad_budgets
         self.ad_spend = np.zeros(self.num_providers).tolist()
+        ad_providers = self._get_ad_providers()
+        ranked_providers = self._get_provider_ranking()
+        logging.debug("Day: {} Ad Providers: {} Ranked Providers {}".format(day,  ad_providers,  ranked_providers))
 
     def _get_ad_providers(self):
         # returns a list of ad providers,
@@ -94,7 +99,8 @@ class SearchMechanics(object):
         return ad_providers[0:num_ads]
 
 
-    def run_query(self):
+    def run_query(self, day, request):
+
 
         # check if there is revenue for ads
         # how many ads to show on the current page?
@@ -121,8 +127,9 @@ class SearchMechanics(object):
             clicked_provider = ranked_providers[item_clicked-num_ads]
         #print("Item:{} Clicked: {}".format(item_clicked, clicked_provider))
         # record the click in total clicks list
-        self.clicks[clicked_provider] =  self.clicks[clicked_provider] + 1
+        self.clicks[clicked_provider] = self.clicks[clicked_provider] + 1
         self.round_clicks[clicked_provider] += 1
+        #logging.debug("Day: {} Request: {} Click Pos: {} Provider Selected: {}".format(day, request, item_clicked, clicked_provider))
 
     def end_round(self):
 
@@ -132,10 +139,10 @@ class SearchMechanics(object):
         # update the ranking score based on previous clicks
         scores = []
         for i in range(0, len(self.round_clicks)):
-            self.score[i] = ((self.score[i] / (1.0+self.discount))+ self.round_clicks[i])
+            self.score[i] = ((self.score[i] / (1.0+self.discount)) + self.round_clicks[i])
             scores.append(self.score[i])
         # return how much was spent on ads, and how many clicks per provider
 
         ranked_providers = self._get_provider_ranking()
 
-        return (self.ad_spend, self.round_clicks, scores)
+        return self.ad_spend, self.round_clicks, scores
